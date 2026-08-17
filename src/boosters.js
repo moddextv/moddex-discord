@@ -14,8 +14,30 @@ export const roleChanges = (boosting, holders) => ({
   remove: holders.filter((id) => !boosting.includes(id))
 });
 
-const syncRole = async (members, boosting) => {
+export const roleProblem = (role, botHighestPosition) => {
+  if (!role) return 'does not exist in this guild';
+  if (role.managed) return 'is managed by discord and cannot be assigned by anyone';
+  if (role.position >= botHighestPosition) return 'sits at or above the bot in the role hierarchy';
+
+  return null;
+};
+
+const usableRole = async (guild, roleId) => {
+  const role = await guild.roles.fetch(roleId).catch(() => null);
+  const problem = roleProblem(role, (await guild.members.fetchMe()).roles.highest.position);
+
+  if (problem) {
+    log.error(`role ${roleId} ${problem}, so no role is assigned`);
+    return null;
+  }
+
+  return role;
+};
+
+const syncRole = async (guild, members, boosting) => {
   if (!config.boosterRoleId) return { added: 0, removed: 0 };
+
+  if (!(await usableRole(guild, config.boosterRoleId))) return { added: 0, removed: 0 };
 
   const { add, remove } = roleChanges(boosting, roleHolderIds(members, config.boosterRoleId));
 
@@ -65,7 +87,7 @@ export const sync = async (guild) => {
 
   const boosting = boostingIds(members);
 
-  const role = await syncRole(members, boosting);
+  const role = await syncRole(guild, members, boosting);
   const badges = await pushToApi(boosting);
 
   log.info(

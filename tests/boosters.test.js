@@ -1,7 +1,13 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { boostingIds, isComplete, roleChanges, roleHolderIds } from '../src/boosters.js';
+import {
+  boostingIds,
+  isComplete,
+  roleChanges,
+  roleHolderIds,
+  roleProblem
+} from '../src/boosters.js';
 
 const members = (rows) =>
   new Map(
@@ -71,5 +77,26 @@ describe('isComplete', () => {
 
   it('accepts a fetch that overshoots, because memberCount lags a join', () => {
     assert.equal(isComplete(94, 93), true);
+  });
+});
+
+describe('roleProblem', () => {
+  const ok = { id: '1', managed: false, position: 3 };
+
+  it('passes a plain role below the bot', () => {
+    assert.equal(roleProblem(ok, 9), null);
+  });
+
+  it('names a role that does not exist', () => {
+    assert.match(roleProblem(null, 9), /does not exist/);
+  });
+
+  it('refuses a discord-managed role, which nobody can assign', () => {
+    assert.match(roleProblem({ ...ok, managed: true }, 9), /managed by discord/);
+  });
+
+  it('refuses a role at the bot own height, not only above it', () => {
+    assert.match(roleProblem({ ...ok, position: 9 }, 9), /hierarchy/);
+    assert.match(roleProblem({ ...ok, position: 10 }, 9), /hierarchy/);
   });
 });
