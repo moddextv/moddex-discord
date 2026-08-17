@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { log } from './log.js';
 import { claim } from './dedupe.js';
 import { boostEmbed, welcomeEmbed } from './messages.js';
-import { sync } from './boosters.js';
+import { reconcile } from './reconcile.js';
 
 // a repeat boost leaves premiumSince untouched, so the system message is the only other source
 const BOOST_MESSAGE_TYPES = new Set([
@@ -81,8 +81,7 @@ const guard =
   (...args) =>
     handler(...args).catch((error) => log.error(`${name} failed`, error));
 
-const syncBoosters = (guild) =>
-  sync(guild).catch((error) => log.error('booster sync failed', error));
+const runSync = (guild) => reconcile(guild).catch((error) => log.error('sync failed', error));
 
 const resolveChannel = async () => {
   try {
@@ -111,24 +110,24 @@ const resolveChannel = async () => {
   }
 };
 
-const scheduleBoosterSync = async () => {
+const scheduleSync = async () => {
   const guild = await client.guilds.fetch(config.guildId).catch((error) => {
-    log.error(`guild ${config.guildId} could not be fetched, booster sync is off`, error);
+    log.error(`guild ${config.guildId} could not be fetched, sync is off`, error);
     return null;
   });
 
   if (!guild) return;
 
-  await syncBoosters(guild);
+  await runSync(guild);
 
-  setInterval(() => syncBoosters(guild), config.boosterSyncSeconds * 1000).unref();
+  setInterval(() => runSync(guild), config.syncSeconds * 1000).unref();
 };
 
 client.once(Events.ClientReady, async () => {
   log.info(`signed in as ${client.user.tag}`);
 
   await resolveChannel();
-  await scheduleBoosterSync();
+  await scheduleSync();
 });
 
 client.on(Events.GuildMemberAdd, guard('welcome', announceJoin));
@@ -144,7 +143,7 @@ client.on(
       await announceBoost(after.guild, after.user, after);
     }
 
-    await syncBoosters(after.guild);
+    await runSync(after.guild);
   })
 );
 
@@ -156,7 +155,7 @@ client.on(
     }
 
     await announceBoost(message.guild, message.author, message.member);
-    await syncBoosters(message.guild);
+    await runSync(message.guild);
   })
 );
 

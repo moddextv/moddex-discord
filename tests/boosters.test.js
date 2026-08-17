@@ -1,13 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import {
-  boostingIds,
-  isComplete,
-  roleChanges,
-  roleHolderIds,
-  roleProblem
-} from '../src/boosters.js';
+import { boostingIds, roleChanges, roleHolderIds, roleProblem } from '../src/boosters.js';
+import { isComplete } from '../src/reconcile.js';
 
 const members = (rows) =>
   new Map(

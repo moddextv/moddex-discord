@@ -19,7 +19,9 @@ export const config = {
 
   boosterRoleId: optional('DISCORD_BOOSTER_ROLE_ID', ''),
 
-  boosterSyncSeconds: Number(optional('BOOSTER_SYNC_SECONDS', '3600')),
+  badgeRoles: optional('DISCORD_BADGE_ROLES', ''),
+
+  syncSeconds: Number(optional('SYNC_SECONDS', '600')),
 
   apiUrl: optional('MODDEX_API_URL', 'https://api.moddex.tv'),
 
