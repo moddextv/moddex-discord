@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { log } from './log.js';
-import { roleChanges, roleHolderIds, roleProblem } from './boosters.js';
+import { roleHolderIds, roleProblem } from './boosters.js';
 
 // badge names carry spaces but never a colon, so the last one separates the id
 export const parseBadgeRoles = (value) =>
@@ -30,12 +30,19 @@ const fetchHolders = async () => {
   return response.json();
 };
 
+// a member with no linked account is no answer, not a no, so the sync may not revoke from them
+export const badgeRoleChanges = (wanted, current, linked) => ({
+  add: wanted.filter((id) => !current.includes(id)),
+  remove: current.filter((id) => linked.has(id) && !wanted.includes(id))
+});
+
 export const syncBadgeRoles = async (guild, members) => {
   const mappings = parseBadgeRoles(config.badgeRoles);
 
   if (!mappings.length || !config.internalToken) return null;
 
-  const { linked, holders } = await fetchHolders();
+  const { linkedIds, holders } = await fetchHolders();
+  const linked = new Set(linkedIds);
   const botHighest = (await guild.members.fetchMe()).roles.highest.position;
   const summary = [];
 
@@ -50,7 +57,7 @@ export const syncBadgeRoles = async (guild, members) => {
 
     // only members of this guild can hold a role, so the api's wider list is narrowed here
     const wanted = (holders[badge] ?? []).filter((id) => members.has(id));
-    const { add, remove } = roleChanges(wanted, roleHolderIds(members, roleId));
+    const { add, remove } = badgeRoleChanges(wanted, roleHolderIds(members, roleId), linked);
 
     for (const id of add) {
       await members.get(id).roles.add(roleId);
@@ -63,7 +70,7 @@ export const syncBadgeRoles = async (guild, members) => {
     summary.push(`${badge} +${add.length} -${remove.length}`);
   }
 
-  log.info(`badge roles: ${linked} linked, ${summary.join(', ') || 'nothing usable'}`);
+  log.info(`badge roles: ${linked.size} linked, ${summary.join(', ') || 'nothing usable'}`);
 
-  return { linked, applied: summary.length };
+  return { linked: linked.size, applied: summary.length };
 };
