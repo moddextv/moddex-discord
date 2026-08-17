@@ -1,22 +1,27 @@
-import { escapeMarkdown } from 'discord.js';
-
-const JOIN_EMOJI = '👋';
-const BOOST_EMOJI = '💜';
+// discord's nitro pink, the colour of the boost bar and the boost gem
+const BOOST_COLOR = 0xff73fa;
+const JOIN_COLOR = 0x5865f2;
 
 const count = (value) => value.toLocaleString('en-US');
 
-export const welcomeMessage = ({ userId, memberCount }) => {
-  const lines = [`${JOIN_EMOJI} <@${userId}> just joined the server!`];
+const author = ({ displayName, avatarUrl, userId }) => ({
+  name: displayName,
+  icon_url: avatarUrl,
+  url: `https://discord.com/users/${userId}`
+});
 
-  if (memberCount) {
-    lines.push(`-# Member #${count(memberCount)}`);
-  }
+const describe = (sentence, subtext) => (subtext ? `${sentence}\n-# ${subtext}` : sentence);
 
-  return lines.join('\n');
-};
+export const welcomeEmbed = ({ displayName, avatarUrl, userId, memberCount }) => ({
+  color: JOIN_COLOR,
+  author: author({ displayName, avatarUrl, userId }),
+  description: describe(
+    'just joined the server!',
+    memberCount ? `Member #${count(memberCount)}` : ''
+  )
+});
 
-export const boostMessage = ({ displayName, boostCount, tier }) => {
-  const lines = [`${BOOST_EMOJI} **${escapeMarkdown(displayName)}** just boosted the server!`];
+export const boostEmbed = ({ displayName, avatarUrl, userId, boostCount, tier }) => {
   const detail = [];
 
   if (boostCount) {
@@ -27,9 +32,12 @@ export const boostMessage = ({ displayName, boostCount, tier }) => {
     detail.push(`Level ${tier}`);
   }
 
-  if (detail.length) {
-    lines.push(`-# The server is now at ${detail.join(' — ')}`);
-  }
-
-  return lines.join('\n');
+  return {
+    color: BOOST_COLOR,
+    author: author({ displayName, avatarUrl, userId }),
+    description: describe(
+      'just boosted the server!',
+      detail.length ? `The server is now at ${detail.join(', ')}` : ''
+    )
+  };
 };

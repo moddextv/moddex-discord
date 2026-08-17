@@ -3,7 +3,8 @@ import { Client, Events, GatewayIntentBits, MessageType } from 'discord.js';
 import { config } from './config.js';
 import { log } from './log.js';
 import { claim } from './dedupe.js';
-import { boostMessage, welcomeMessage } from './messages.js';
+import { boostEmbed, welcomeEmbed } from './messages.js';
+import { sync } from './boosters.js';
 
 // a repeat boost leaves premiumSince untouched, so the system message is the only other source
 const BOOST_MESSAGE_TYPES = new Set([
@@ -23,9 +24,9 @@ export const client = new Client({
 
 let channel = null;
 
-const post = async (content, mentionUserId) => {
+const post = async (embed) => {
   if (!config.announce) {
-    log.info(`DISCORD_ANNOUNCE is false, not posted: ${content.split('\n')[0]}`);
+    log.info(`DISCORD_ANNOUNCE is false, not posted: ${embed.author.name} ${embed.description}`);
     return;
   }
 
@@ -34,11 +35,14 @@ const post = async (content, mentionUserId) => {
     return;
   }
 
-  await channel.send({
-    content,
-    allowedMentions: { users: mentionUserId ? [mentionUserId] : [] }
-  });
+  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 };
+
+const identify = (user, member) => ({
+  displayName: member?.displayName || user.displayName || user.username,
+  avatarUrl: (member ?? user).displayAvatarURL({ size: 128 }),
+  userId: user.id
+});
 
 const announceJoin = async (member) => {
   if (!config.welcomeEnabled || member.guild.id !== config.guildId || member.user.bot) {
@@ -50,12 +54,11 @@ const announceJoin = async (member) => {
   }
 
   await post(
-    welcomeMessage({ userId: member.id, memberCount: member.guild.memberCount }),
-    member.id
+    welcomeEmbed({ ...identify(member.user, member), memberCount: member.guild.memberCount })
   );
 };
 
-const announceBoost = async (guild, user, displayName) => {
+const announceBoost = async (guild, user, member) => {
   if (!config.boostEnabled || guild.id !== config.guildId) {
     return;
   }
@@ -65,8 +68,8 @@ const announceBoost = async (guild, user, displayName) => {
   }
 
   await post(
-    boostMessage({
-      displayName: displayName || user.displayName || user.username,
+    boostEmbed({
+      ...identify(user, member),
       boostCount: guild.premiumSubscriptionCount,
       tier: guild.premiumTier
     })
@@ -78,9 +81,10 @@ const guard =
   (...args) =>
     handler(...args).catch((error) => log.error(`${name} failed`, error));
 
-client.once(Events.ClientReady, async () => {
-  log.info(`signed in as ${client.user.tag}`);
+const syncBoosters = (guild) =>
+  sync(guild).catch((error) => log.error('booster sync failed', error));
 
+const resolveChannel = async () => {
   try {
     channel = await client.channels.fetch(config.announceChannelId);
   } catch (error) {
@@ -103,8 +107,28 @@ client.once(Events.ClientReady, async () => {
   log.info(`announcing in #${channel.name} of ${channel.guild.name}`);
 
   if (!config.announce) {
-    log.warn('DISCORD_ANNOUNCE is false — events are logged, nothing is posted');
+    log.warn('DISCORD_ANNOUNCE is false, events are logged and nothing is posted');
   }
+};
+
+const scheduleBoosterSync = async () => {
+  const guild = await client.guilds.fetch(config.guildId).catch((error) => {
+    log.error(`guild ${config.guildId} could not be fetched, booster sync is off`, error);
+    return null;
+  });
+
+  if (!guild) return;
+
+  await syncBoosters(guild);
+
+  setInterval(() => syncBoosters(guild), config.boosterSyncSeconds * 1000).unref();
+};
+
+client.once(Events.ClientReady, async () => {
+  log.info(`signed in as ${client.user.tag}`);
+
+  await resolveChannel();
+  await scheduleBoosterSync();
 });
 
 client.on(Events.GuildMemberAdd, guard('welcome', announceJoin));
@@ -112,11 +136,15 @@ client.on(Events.GuildMemberAdd, guard('welcome', announceJoin));
 client.on(
   Events.GuildMemberUpdate,
   guard('boost via member update', async (before, after) => {
-    if (before.premiumSince || !after.premiumSince) {
+    if (Boolean(before.premiumSince) === Boolean(after.premiumSince)) {
       return;
     }
 
-    await announceBoost(after.guild, after.user, after.displayName);
+    if (after.premiumSince) {
+      await announceBoost(after.guild, after.user, after);
+    }
+
+    await syncBoosters(after.guild);
   })
 );
 
@@ -127,7 +155,8 @@ client.on(
       return;
     }
 
-    await announceBoost(message.guild, message.author, message.member?.displayName);
+    await announceBoost(message.guild, message.author, message.member);
+    await syncBoosters(message.guild);
   })
 );
 
