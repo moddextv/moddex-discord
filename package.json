@@ -1,0 +1,20 @@
+{
+  "name": "moddex-discord",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discord bot for the moddex community server",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --env-file=.env --watch src/index.js",
+    "test": "node --test \"tests/*.test.js\"",
+    "format": "npx --yes prettier@3.9.6 --write .",
+    "format:check": "npx --yes prettier@3.9.6 --check ."
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}

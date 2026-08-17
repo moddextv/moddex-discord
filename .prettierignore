@@ -1,0 +1,5 @@
+# prettier reads .gitignore as well, so node_modules/ needs no repeat here.
+# This file is only for what git tracks but prettier must not rewrite.
+
+# npm owns this file and rewrites it on every install
+package-lock.json

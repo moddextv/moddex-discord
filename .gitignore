@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.next/
+.env
+.env.local
+*.sql.gz
+backups/
+.DS_Store
