@@ -1,6 +1,6 @@
 {
   "name": "moddex-discord",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Discord bot for the moddex community server",
   "type": "module",
