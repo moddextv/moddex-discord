@@ -42,7 +42,8 @@ export const boostEmbed = ({ displayName, avatarUrl, userId, boostCount, tier })
   };
 };
 
-const MODDEX_COLOR = 0x4ade80;
+// the mark's outer bracket — vip pink, and nothing else in discord wears it
+const MODDEX_COLOR = 0xf472b6;
 
 const profileAuthor = (account, kind) => ({
   name: account.name || account.login,
