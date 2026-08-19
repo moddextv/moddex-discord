@@ -45,10 +45,15 @@ export const boostEmbed = ({ displayName, avatarUrl, userId, boostCount, tier })
 const MODDEX_COLOR = 0x4ade80;
 
 const profileAuthor = (account, kind) => ({
-  name: `${account.name || account.login} (${account.id})`,
+  name: account.name || account.login,
   icon_url: account.avatar || undefined,
   url: `https://moddex.tv/${kind}/${account.login}`
 });
+
+// an empty inline field fills the third slot, so a row holds two and not three
+const SPACER = { name: '​', value: '​', inline: true };
+
+const pairs = (fields) => fields.flatMap((field, i) => (i % 2 ? [field, SPACER] : [field]));
 
 const links = (account, kind) =>
   `[twitch](https://twitch.tv/${account.login}) · [moddex](https://moddex.tv/${kind}/${account.login})`;
@@ -89,35 +94,34 @@ const badgeLine = (account, emoji) => {
   return `-# ${names.join(' · ')}`;
 };
 
-const notes = (account, emoji = BADGE_EMOJI) => {
-  const lines = [];
-
-  const badges = badgeLine(account, emoji);
-  if (badges) lines.push(badges);
+const notes = (account, kind, emoji = BADGE_EMOJI) => {
+  const lines = [badgeLine(account, emoji), links(account, kind)];
 
   if (account.banned) lines.push(`-# banned: ${account.banned}`);
   if (account.bot) lines.push('-# flagged as a bot');
 
-  return lines.join('\n');
+  return lines.filter(Boolean).join('\n');
 };
+
+const stamp = (account) => `${count(account.follower || 0)} followers · ${account.id}`;
 
 export const accountEmbed = (account, stats, emoji = BADGE_EMOJI) => ({
   color: MODDEX_COLOR,
   author: profileAuthor(account, 'user'),
-  description: [links(account, 'user'), notes(account, emoji)].filter(Boolean).join('\n'),
-  fields: [
+  description: notes(account, 'user', emoji),
+  fields: pairs([
     { name: 'Modding', value: holds(stats && stats.mod), inline: true },
     { name: 'Viping', value: holds(stats && stats.vip), inline: true },
     { name: 'Founding', value: holds(stats && stats.founder), inline: true }
-  ],
-  footer: { text: `${count(account.follower || 0)} followers` }
+  ]),
+  footer: { text: stamp(account) }
 });
 
 export const channelEmbed = (account, granted, emoji = BADGE_EMOJI) => ({
   color: MODDEX_COLOR,
   author: profileAuthor(account, 'channel'),
-  description: [links(account, 'channel'), notes(account, emoji)].filter(Boolean).join('\n'),
-  fields: [
+  description: notes(account, 'channel', emoji),
+  fields: pairs([
     { name: 'Mods', value: granted.mod === null ? '—' : count(granted.mod), inline: true },
     { name: 'Vips', value: granted.vip === null ? '—' : count(granted.vip), inline: true },
     {
@@ -125,8 +129,8 @@ export const channelEmbed = (account, granted, emoji = BADGE_EMOJI) => ({
       value: granted.founder === null ? '—' : count(granted.founder),
       inline: true
     }
-  ],
-  footer: { text: `${count(account.follower || 0)} followers` }
+  ]),
+  footer: { text: stamp(account) }
 });
 
 export const notFoundReply = (login) => `**${login}** is not in the moddex index.`;
@@ -137,6 +141,7 @@ export const statsEmbed = (stats) => ({
   fields: [
     { name: 'Channels', value: count(stats.channels), inline: true },
     { name: 'Accounts', value: count(stats.users), inline: true },
+    SPACER,
     { name: 'Mods', value: count(stats.mods), inline: true },
     { name: 'Vips', value: count(stats.vips), inline: true },
     { name: 'Founders', value: count(stats.founders || 0), inline: true }

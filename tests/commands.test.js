@@ -82,7 +82,8 @@ describe('the slash commands', () => {
     await handle(call);
 
     const [embed] = call.replies[0].embeds;
-    assert.equal(embed.author.name, 'forsen (22484632)');
+    assert.equal(embed.author.name, 'forsen', 'the id belongs in the footer, not the title');
+    assert.match(embed.footer.text, /1,784,565 followers · 22484632/);
     assert.equal(embed.fields[0].value, '251\n-# #203');
   });
 
@@ -125,7 +126,25 @@ describe('the slash commands', () => {
   });
 });
 
+const SPACER_NAME = '​';
+
 describe('the lookup embeds', () => {
+  it('lays the roles out two to a row, so a fourth does not strand one alone', () => {
+    const embed = accountEmbed(ACCOUNT, null);
+    const gaps = embed.fields.filter((f) => f.name === SPACER_NAME).length;
+
+    assert.equal(embed.fields.length, 4, 'three roles plus one spacer');
+    assert.equal(gaps, 1);
+    assert.equal(embed.fields[2].name, SPACER_NAME, 'the spacer closes the first row');
+  });
+
+  it('puts the badges above the links, not below', () => {
+    const [first, second] = accountEmbed(ACCOUNT, null).description.split('\n');
+
+    assert.match(first, /^<:partner:/);
+    assert.match(second, /twitch/);
+  });
+
   it('shows a dash where a granted total could not be read', () => {
     const embed = channelEmbed(ACCOUNT, { mod: 39, vip: null, founder: 24 });
 
