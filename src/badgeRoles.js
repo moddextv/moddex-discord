@@ -55,7 +55,6 @@ export const syncBadgeRoles = async (guild, members) => {
       continue;
     }
 
-    // only members of this guild can hold a role, so the api's wider list is narrowed here
     const wanted = (holders[badge] ?? []).filter((id) => members.has(id));
     const { add, remove } = badgeRoleChanges(wanted, roleHolderIds(members, roleId), linked);
 

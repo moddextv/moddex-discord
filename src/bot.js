@@ -2,8 +2,8 @@ import { Client, Events, GatewayIntentBits, MessageType } from 'discord.js';
 
 import { config } from './config.js';
 import { log } from './log.js';
-import { claim } from './dedupe.js';
-import { boostEmbed, welcomeEmbed } from './messages.js';
+import { announceBoost, announceJoin, resolveChannel } from './announce.js';
+import { handle, register } from './commands.js';
 import { reconcile } from './reconcile.js';
 
 // a repeat boost leaves premiumSince untouched, so the system message is the only other source
@@ -22,93 +22,12 @@ export const client = new Client({
   ]
 });
 
-let channel = null;
-
-const post = async (embed) => {
-  if (!config.announce) {
-    log.info(`DISCORD_ANNOUNCE is false, not posted: ${embed.author.name} ${embed.description}`);
-    return;
-  }
-
-  if (!channel) {
-    log.warn('no announce channel resolved, nothing posted');
-    return;
-  }
-
-  await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
-};
-
-const identify = (user, member) => ({
-  displayName: member?.displayName || user.displayName || user.username,
-  avatarUrl: (member ?? user).displayAvatarURL({ size: 128 }),
-  userId: user.id
-});
-
-const announceJoin = async (member) => {
-  if (!config.welcomeEnabled || member.guild.id !== config.guildId || member.user.bot) {
-    return;
-  }
-
-  if (!claim(`join:${member.id}`)) {
-    return;
-  }
-
-  await post(
-    welcomeEmbed({ ...identify(member.user, member), memberCount: member.guild.memberCount })
-  );
-};
-
-const announceBoost = async (guild, user, member) => {
-  if (!config.boostEnabled || guild.id !== config.guildId) {
-    return;
-  }
-
-  if (!claim(`boost:${user.id}`)) {
-    return;
-  }
-
-  await post(
-    boostEmbed({
-      ...identify(user, member),
-      boostCount: guild.premiumSubscriptionCount,
-      tier: guild.premiumTier
-    })
-  );
-};
-
 const guard =
   (name, handler) =>
   (...args) =>
     handler(...args).catch((error) => log.error(`${name} failed`, error));
 
 const runSync = (guild) => reconcile(guild).catch((error) => log.error('sync failed', error));
-
-const resolveChannel = async () => {
-  try {
-    channel = await client.channels.fetch(config.announceChannelId);
-  } catch (error) {
-    log.error(`announce channel ${config.announceChannelId} could not be fetched`, error);
-    return;
-  }
-
-  if (!channel?.isTextBased() || channel.isDMBased()) {
-    log.error(`announce channel ${config.announceChannelId} is not a guild text channel`);
-    channel = null;
-    return;
-  }
-
-  if (channel.guild.id !== config.guildId) {
-    log.error(`announce channel belongs to guild ${channel.guild.id}, not ${config.guildId}`);
-    channel = null;
-    return;
-  }
-
-  log.info(`announcing in #${channel.name} of ${channel.guild.name}`);
-
-  if (!config.announce) {
-    log.warn('DISCORD_ANNOUNCE is false, events are logged and nothing is posted');
-  }
-};
 
 const scheduleSync = async () => {
   const guild = await client.guilds.fetch(config.guildId).catch((error) => {
@@ -126,7 +45,8 @@ const scheduleSync = async () => {
 client.once(Events.ClientReady, async () => {
   log.info(`signed in as ${client.user.tag}`);
 
-  await resolveChannel();
+  await resolveChannel(client);
+  await register(client).catch((error) => log.error('slash commands failed to register', error));
   await scheduleSync();
 });
 
@@ -135,9 +55,7 @@ client.on(Events.GuildMemberAdd, guard('welcome', announceJoin));
 client.on(
   Events.GuildMemberUpdate,
   guard('boost via member update', async (before, after) => {
-    if (Boolean(before.premiumSince) === Boolean(after.premiumSince)) {
-      return;
-    }
+    if (Boolean(before.premiumSince) === Boolean(after.premiumSince)) return;
 
     if (after.premiumSince) {
       await announceBoost(after.guild, after.user, after);
@@ -150,12 +68,19 @@ client.on(
 client.on(
   Events.MessageCreate,
   guard('boost via system message', async (message) => {
-    if (!message.guild || !BOOST_MESSAGE_TYPES.has(message.type)) {
-      return;
-    }
+    if (!message.guild || !BOOST_MESSAGE_TYPES.has(message.type)) return;
 
     await announceBoost(message.guild, message.author, message.member);
     await runSync(message.guild);
+  })
+);
+
+client.on(
+  Events.InteractionCreate,
+  guard('slash command', async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    await handle(interaction);
   })
 );
 
