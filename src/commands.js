@@ -1,4 +1,4 @@
-import { estateStats, grantedByChannel, heldByAccount, lookupAccount } from './api.js';
+import { estateStats, lookupAccount, lookupChannel } from './api.js';
 import { accountEmbed, channelEmbed, notFoundReply, statsEmbed } from './messages.js';
 import { config } from './config.js';
 import { log } from './log.js';
@@ -15,12 +15,14 @@ const COMMANDS = {
   user: {
     description: 'roles this account holds elsewhere',
     options: [login],
-    run: async (account) => accountEmbed(account, await heldByAccount(account.id))
+    lookup: lookupAccount,
+    run: async (account) => accountEmbed(account, account.roles)
   },
   channel: {
     description: 'roles this channel has handed out',
     options: [login],
-    run: async (account) => channelEmbed(account, await grantedByChannel(account.id))
+    lookup: lookupChannel,
+    run: async (account) => channelEmbed(account, account.granted)
   },
   stats: {
     description: 'how much of twitch moddex has indexed',
@@ -38,7 +40,7 @@ const answer = async (command, interaction) => {
   if (!command.options) return { embeds: [await command.run()] };
 
   const wanted = interaction.options.getString('login', true).trim().replace(/^@/, '');
-  const account = await lookupAccount(wanted);
+  const account = await command.lookup(wanted);
 
   return account ? { embeds: [await command.run(account)] } : notFoundReply(wanted);
 };

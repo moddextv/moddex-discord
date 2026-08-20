@@ -18,7 +18,7 @@ export const parseBadgeRoles = (value) =>
     .filter((entry) => entry && entry.badge && entry.roleId);
 
 const fetchHolders = async () => {
-  const response = await fetch(`${config.apiUrl}/v1/badges/discord`, {
+  const response = await fetch(`${config.apiUrl}/v1/internal/badges/discord`, {
     signal: AbortSignal.timeout(config.apiTimeoutMs),
     headers: { authorization: `Bearer ${config.internalToken}` }
   });

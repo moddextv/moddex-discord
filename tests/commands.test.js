@@ -9,8 +9,8 @@ const ACCOUNT = {
   login: 'forsen',
   name: 'forsen',
   avatar: 'https://cdn/forsen.png',
-  follower: 1784565,
-  banned: '',
+  followers: 1784565,
+  banned: null,
   bot: false,
   badges: [{ id: 7, name: 'partner' }]
 };
@@ -70,11 +70,13 @@ describe('the slash commands', () => {
 
   it('answers /user from the account and its held counts', async () => {
     stubFetch({
-      '/v1/users?login=': [ACCOUNT],
-      '/v1/users/22484632/stats': {
-        mod: { count: 251, position: 203 },
-        vip: { count: 30, position: 12439 },
-        founder: { count: 2, position: 598756 }
+      '/v1/users/forsen': {
+        ...ACCOUNT,
+        roles: {
+          mod: { count: 251, rank: 203, of: 4023901 },
+          vip: { count: 30, rank: 12439, of: 4085984 },
+          founder: { count: 2, rank: 598756, of: 3476497 }
+        }
       }
     });
 
@@ -87,27 +89,39 @@ describe('the slash commands', () => {
     assert.equal(embed.fields[0].value, '251\n-# #203');
   });
 
+  it('answers a whole command in one request, not two', async () => {
+    stubFetch({
+      '/v1/users/forsen': { ...ACCOUNT, roles: { mod: { count: 251, rank: 203 } } }
+    });
+
+    await handle(interaction('user'));
+
+    assert.equal(
+      globalThis.fetch.mock.calls.length,
+      1,
+      'the account and its counts arrive together'
+    );
+  });
+
   it('never asks for a role list it would have to count itself', async () => {
     stubFetch({
-      '/v1/users?login=': [ACCOUNT],
-      '/v1/mods': { total: 39 },
-      '/v1/vips': { total: 3 },
-      '/v1/founders': { total: 24 }
+      '/v1/channels/forsen': {
+        ...ACCOUNT,
+        granted: { mod: { count: 39 }, vip: { count: 3 }, founder: { count: 24 } }
+      }
     });
 
     await handle(interaction('channel'));
 
     const asked = globalThis.fetch.mock.calls.map((one) => String(one.arguments[0]));
-    const lists = asked.filter((url) => /\/v1\/(mods|vips|founders)/.test(url));
+    const lists = asked.filter((url) => /\/(mods|vips|founders)(\?|$)/.test(url));
 
-    assert.equal(lists.length, 3);
-    for (const url of lists) {
-      assert.match(url, /limit=1/, 'nightbot has 590k rows; only the total is wanted');
-    }
+    assert.equal(lists.length, 0, 'nightbot has 590k rows; the counts come off the channel itself');
+    assert.equal(asked.length, 1);
   });
 
   it('tells an opted-out account apart from nothing at all — it must not', async () => {
-    stubFetch({ '/v1/users?login=': 404 });
+    stubFetch({ '/v1/users/someone': 404 });
 
     const call = interaction('user', 'someone');
     await handle(call);
@@ -145,10 +159,12 @@ describe('the lookup embeds', () => {
     assert.match(second, /twitch/);
   });
 
-  it('shows a dash where a granted total could not be read', () => {
-    const embed = channelEmbed(ACCOUNT, { mod: 39, vip: null, founder: 24 });
+  it('tells a zero apart from an answer the api did not give', () => {
+    const embed = channelEmbed(ACCOUNT, { mod: { count: 39 }, founder: { count: 0 } });
 
-    assert.equal(embed.fields[1].value, '—');
+    assert.equal(embed.fields[0].value, '39');
+    assert.equal(embed.fields[1].value, '—', 'vip is absent, which is not the same as none');
+    assert.equal(embed.fields[3].value, '0', 'founder answered zero, and zero is an answer');
   });
 
   it('renders badges as names until every one of them has an emoji', () => {
@@ -169,7 +185,7 @@ describe('the lookup embeds', () => {
   });
 
   it('carries the ban reason and the bot flag when they are set', () => {
-    const embed = accountEmbed({ ...ACCOUNT, banned: 'TOS', bot: true }, null, new Map());
+    const embed = accountEmbed({ ...ACCOUNT, banned: { reason: 'TOS' }, bot: true }, null, new Map());
 
     assert.match(embed.description, /banned: TOS/);
     assert.match(embed.description, /flagged as a bot/);

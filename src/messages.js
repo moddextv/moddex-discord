@@ -59,12 +59,12 @@ const pairs = (fields) => fields.flatMap((field, i) => (i % 2 ? [field, SPACER] 
 const links = (account, kind) =>
   `[twitch](https://twitch.tv/${account.login}) · [moddex](https://moddex.tv/${kind}/${account.login})`;
 
+// a missing scale is the api declining to say; a zero count is an answer
 const holds = (scale) => {
-  if (!scale || !scale.count) return '0';
+  if (!scale) return '—';
+  if (!scale.count) return '0';
 
-  return scale.position
-    ? `${count(scale.count)}\n-# #${count(scale.position)}`
-    : count(scale.count);
+  return scale.rank ? `${count(scale.count)}\n-# #${count(scale.rank)}` : count(scale.count);
 };
 
 // application emoji ids, keyed by the badge name the api sends — "top donator" has a space
@@ -98,13 +98,13 @@ const badgeLine = (account, emoji) => {
 const notes = (account, kind, emoji = BADGE_EMOJI) => {
   const lines = [badgeLine(account, emoji), links(account, kind)];
 
-  if (account.banned) lines.push(`-# banned: ${account.banned}`);
+  if (account.banned) lines.push(`-# banned: ${account.banned.reason}`);
   if (account.bot) lines.push('-# flagged as a bot');
 
   return lines.filter(Boolean).join('\n');
 };
 
-const stamp = (account) => `${count(account.follower || 0)} followers · ${account.id}`;
+const stamp = (account) => `${count(account.followers || 0)} followers · ${account.id}`;
 
 export const accountEmbed = (account, stats, emoji = BADGE_EMOJI) => ({
   color: MODDEX_COLOR,
@@ -123,13 +123,9 @@ export const channelEmbed = (account, granted, emoji = BADGE_EMOJI) => ({
   author: profileAuthor(account, 'channel'),
   description: notes(account, 'channel', emoji),
   fields: pairs([
-    { name: 'Mods', value: granted.mod === null ? '—' : count(granted.mod), inline: true },
-    { name: 'Vips', value: granted.vip === null ? '—' : count(granted.vip), inline: true },
-    {
-      name: 'Founders',
-      value: granted.founder === null ? '—' : count(granted.founder),
-      inline: true
-    }
+    { name: 'Mods', value: holds(granted && granted.mod), inline: true },
+    { name: 'Vips', value: holds(granted && granted.vip), inline: true },
+    { name: 'Founders', value: holds(granted && granted.founder), inline: true }
   ]),
   footer: { text: stamp(account) }
 });

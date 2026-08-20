@@ -55,7 +55,7 @@ const syncRole = async (guild, members, boosting) => {
 const pushToApi = async (discordIds) => {
   if (!config.apiUrl || !config.internalToken) return null;
 
-  const response = await fetch(`${config.apiUrl}/v1/boosters`, {
+  const response = await fetch(`${config.apiUrl}/v1/internal/boosters`, {
     method: 'PUT',
     signal: AbortSignal.timeout(config.apiTimeoutMs),
     headers: {
