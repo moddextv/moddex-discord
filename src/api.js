@@ -17,8 +17,7 @@ const get = async (path) => {
 };
 
 // one call answers a whole command: the account and what it holds, with ranks
-export const lookupAccount = (login) =>
-  get(`/v1/users/${encodeURIComponent(login.toLowerCase())}`);
+export const lookupAccount = (login) => get(`/v1/users/${encodeURIComponent(login.toLowerCase())}`);
 
 export const lookupChannel = (login) =>
   get(`/v1/channels/${encodeURIComponent(login.toLowerCase())}`);

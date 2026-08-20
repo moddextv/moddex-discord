@@ -185,7 +185,11 @@ describe('the lookup embeds', () => {
   });
 
   it('carries the ban reason and the bot flag when they are set', () => {
-    const embed = accountEmbed({ ...ACCOUNT, banned: { reason: 'TOS' }, bot: true }, null, new Map());
+    const embed = accountEmbed(
+      { ...ACCOUNT, banned: { reason: 'TOS' }, bot: true },
+      null,
+      new Map()
+    );
 
     assert.match(embed.description, /banned: TOS/);
     assert.match(embed.description, /flagged as a bot/);
