@@ -9,7 +9,7 @@ const send = (res, code, obj) => {
   res.end(JSON.stringify(obj));
 };
 
-export const healthBody = ({ ready, pingMs }) => ({
+const healthBody = ({ ready, pingMs }) => ({
   status: ready ? 'ok' : 'degraded',
   service: 'moddex-discord',
   uptimeSec: Math.round(process.uptime()),
