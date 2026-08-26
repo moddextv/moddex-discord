@@ -80,7 +80,7 @@ export const handle = async (interaction) => {
 const label = ({ login, name }) =>
   name && name.toLowerCase() !== login ? `${name} (${login})` : login;
 
-export const suggestions = async (prefix) => {
+const suggestions = async (prefix) => {
   const wanted = typed(prefix);
 
   if (wanted.length < MIN_PREFIX) return [];
