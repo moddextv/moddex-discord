@@ -23,3 +23,5 @@ export const lookupChannel = (login) =>
   get(`/v1/channels/${encodeURIComponent(login.toLowerCase())}`);
 
 export const estateStats = () => get('/v1/stats');
+
+export const allBadges = () => get('/v1/badges');

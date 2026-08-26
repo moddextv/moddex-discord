@@ -12,16 +12,27 @@ const author = ({ displayName, avatarUrl, userId }) => ({
 
 const describe = (sentence, subtext) => (subtext ? `${sentence}\n-# ${subtext}` : sentence);
 
-export const welcomeEmbed = ({ displayName, avatarUrl, userId, memberCount }) => ({
+/**
+ * The author line is not markdown and a display name is left alone there. A
+ * description is markdown, and a discord username may hold `_` and `.` — so
+ * `some_user_name` would come out with "user" in italics. Escaped here and
+ * nowhere else, because nowhere else puts a name a stranger chose into markdown.
+ */
+const escape = (text) => String(text).replace(/([\\_*~`|>])/g, '\\$1');
+
+// the handle, not the display name: the author line already carries that one
+const did = (username, verb) => (username ? `**${escape(username)}** ${verb}` : verb);
+
+export const welcomeEmbed = ({ displayName, username, avatarUrl, userId, memberCount }) => ({
   color: JOIN_COLOR,
   author: author({ displayName, avatarUrl, userId }),
   description: describe(
-    'just joined the server!',
+    did(username, 'just joined the server!'),
     memberCount ? `Member #${count(memberCount)}` : ''
   )
 });
 
-export const boostEmbed = ({ displayName, avatarUrl, userId, boostCount, tier }) => {
+export const boostEmbed = ({ displayName, username, avatarUrl, userId, boostCount, tier }) => {
   const detail = [];
 
   if (boostCount) {
@@ -36,7 +47,7 @@ export const boostEmbed = ({ displayName, avatarUrl, userId, boostCount, tier })
     color: BOOST_COLOR,
     author: author({ displayName, avatarUrl, userId }),
     description: describe(
-      'just boosted the server!',
+      did(username, 'just boosted the server!'),
       detail.length ? `The server is now at ${detail.join(', ')}` : ''
     )
   };
@@ -76,8 +87,23 @@ export const BADGE_EMOJI = new Map([
   ['booster', '1539603622210310185'],
   ['staff', '1539603653877305415'],
   ['partner', '1539603646059126875'],
-  ['affiliate', '1539603613410918430']
+  ['affiliate', '1539603613410918430'],
+  ['translator', '1542129520696631316']
 ]);
+
+/**
+ * A row falls back to plain names unless every badge on it has an emoji, so one
+ * missing entry costs an account its whole row rather than one picture. The map
+ * is a second copy of a list the api owns, and a test against a third copy only
+ * proves the three were written on the same day: `translator` shipped on
+ * 2026-08-26 and nothing here noticed.
+ *
+ * So the api is asked once at boot instead. It names what it cannot draw, which
+ * is the part a person needs, and returns the names rather than logging them
+ * itself so a caller can decide how loud to be.
+ */
+export const unrenderableBadges = (badges, emoji = BADGE_EMOJI) =>
+  (badges || []).map((badge) => badge.name).filter((name) => !emoji.has(name));
 
 const badgeLine = (account, emoji) => {
   const names = (account.badges || []).map((badge) => badge.name);

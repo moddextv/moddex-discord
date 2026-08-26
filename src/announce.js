@@ -49,6 +49,7 @@ const post = async (embed) => {
 
 const identify = (user, member) => ({
   displayName: member?.displayName || user.displayName || user.username,
+  username: user.username,
   avatarUrl: (member ?? user).displayAvatarURL({ size: 128 }),
   userId: user.id
 });

@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { afterEach, describe, it, mock } from 'node:test';
 
 import { definitions, handle } from '../src/commands.js';
-import { BADGE_EMOJI, accountEmbed, channelEmbed } from '../src/messages.js';
+import { BADGE_EMOJI, accountEmbed, channelEmbed, unrenderableBadges } from '../src/messages.js';
 
 const ACCOUNT = {
   id: '22484632',
@@ -202,18 +202,46 @@ describe('the badge emoji map', () => {
     assert.equal(BADGE_EMOJI.has('top_donator'), false);
   });
 
-  it('carries an id for every badge, so a row never falls back for one missing entry', () => {
-    for (const name of [
-      'bot',
-      'admin',
-      'top donator',
-      'donator',
-      'booster',
-      'staff',
-      'partner',
-      'affiliate'
-    ]) {
-      assert.match(BADGE_EMOJI.get(name) || '', /^\d{17,20}$/, `${name} has no emoji id`);
+  it('holds a real snowflake for every name it does know', () => {
+    for (const [name, id] of BADGE_EMOJI) {
+      assert.match(id, /^\d{17,20}$/, `${name} has no emoji id`);
     }
+  });
+
+  /**
+   * The list this used to check against was a third copy of a list the api owns,
+   * so it agreed with the map and both were wrong: `translator` shipped on
+   * 2026-08-26 and nothing here noticed. A test cannot ask production, so the
+   * completeness check moved to boot; what is testable is the reporting.
+   */
+  // a badge that will never exist, so this stays a miss however many are added
+  const ABSENT = 'no such badge';
+
+  it('names every badge it cannot draw, and says nothing when it can draw them all', () => {
+    const known = [...BADGE_EMOJI.keys()].map((name) => ({ name }));
+
+    assert.deepEqual(unrenderableBadges(known), []);
+    assert.deepEqual(unrenderableBadges([...known, { name: ABSENT }]), [ABSENT]);
+    assert.deepEqual(unrenderableBadges([]), []);
+    assert.deepEqual(unrenderableBadges(null), []);
+  });
+
+  it('reports the missing one even when the rest are fine, which is what costs the row', () => {
+    const row = [{ name: 'admin' }, { name: ABSENT }, { name: 'donator' }];
+
+    assert.deepEqual(unrenderableBadges(row), [ABSENT]);
+    assert.match(
+      accountEmbed({ ...ACCOUNT, badges: row }, null).description,
+      /-# admin · no such badge · donator/,
+      'one missing entry drops the whole row to plain text'
+    );
+  });
+
+  it('can draw the translator, which is what this whole check was written for', () => {
+    assert.deepEqual(unrenderableBadges([{ name: 'translator' }]), []);
+    assert.match(
+      accountEmbed({ ...ACCOUNT, badges: [{ name: 'translator' }] }, null).description,
+      /^<:translator:\d{17,20}>/
+    );
   });
 });

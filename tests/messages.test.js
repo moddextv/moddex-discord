@@ -5,6 +5,7 @@ import { boostEmbed, welcomeEmbed } from '../src/messages.js';
 
 const who = {
   displayName: 'lellol',
+  username: 'lellol',
   avatarUrl: 'https://cdn.discordapp.com/avatars/1/a.png',
   userId: '1'
 };
@@ -21,11 +22,49 @@ describe('welcomeEmbed', () => {
   it('renders the member number as subtext with a thousands separator', () => {
     const embed = welcomeEmbed({ ...who, memberCount: 1284 });
 
-    assert.equal(embed.description, 'just joined the server!\n-# Member #1,284');
+    assert.equal(embed.description, '**lellol** just joined the server!\n-# Member #1,284');
   });
 
   it('omits the subtext when the member count is unknown', () => {
-    assert.equal(welcomeEmbed({ ...who, memberCount: 0 }).description, 'just joined the server!');
+    assert.equal(
+      welcomeEmbed({ ...who, memberCount: 0 }).description,
+      '**lellol** just joined the server!'
+    );
+  });
+
+  /**
+   * The handle, not the display name. The author line already carries the one a
+   * person chose to show; the line underneath says who that actually is, which
+   * is the part that survives a rename.
+   */
+  it('names the handle even when the display name is something else', () => {
+    const embed = welcomeEmbed({
+      ...who,
+      displayName: 'Kyelin',
+      username: 'kyelin',
+      memberCount: 93
+    });
+
+    assert.equal(embed.author.name, 'Kyelin');
+    assert.equal(embed.description, '**kyelin** just joined the server!\n-# Member #93');
+  });
+
+  /**
+   * A description is markdown and a username may hold `_`, so `some_user_name`
+   * would arrive with "user" in italics and the underscores eaten.
+   */
+  it('escapes a username, because a description is markdown and the author line is not', () => {
+    const embed = welcomeEmbed({ ...who, username: 'some_user_name', memberCount: 0 });
+
+    assert.equal(embed.description, '**some\\_user\\_name** just joined the server!');
+    assert.doesNotMatch(embed.description, /[^\\]_/);
+  });
+
+  it('falls back to the bare sentence rather than naming nobody', () => {
+    assert.equal(
+      welcomeEmbed({ ...who, username: undefined, memberCount: 0 }).description,
+      'just joined the server!'
+    );
   });
 });
 
@@ -39,7 +78,7 @@ describe('boostEmbed', () => {
 
     assert.equal(
       embed.description,
-      'just boosted the server!\n-# The server is now at 15 boosts, Level 2'
+      '**lellol** just boosted the server!\n-# The server is now at 15 boosts, Level 2'
     );
   });
 
@@ -50,7 +89,7 @@ describe('boostEmbed', () => {
   it('drops the subtext entirely when neither count nor tier is known', () => {
     assert.equal(
       boostEmbed({ ...who, boostCount: 0, tier: 0 }).description,
-      'just boosted the server!'
+      '**lellol** just boosted the server!'
     );
   });
 
