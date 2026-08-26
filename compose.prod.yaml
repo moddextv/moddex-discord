@@ -1,0 +1,9 @@
+name: moddex-discord
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/moddextv/moddex-discord}:${IMAGE_TAG:-latest}
+    env_file: .env
+    networks: [web]
+    restart: unless-stopped
+networks:
+  web: { external: true }
