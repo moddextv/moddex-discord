@@ -1,6 +1,5 @@
 import { estateStats, lookupAccount, lookupChannel, lookupRoles, suggestAccounts } from './api.js';
 import { accountEmbed, channelEmbed, notFoundReply, rolesEmbed, statsEmbed } from './messages.js';
-import { config } from './config.js';
 import { log } from './log.js';
 
 // the api refuses a shorter prefix: it would match too much to rank
@@ -100,15 +99,15 @@ export const suggest = async (interaction) => {
   await interaction.respond(choices).catch(() => {});
 };
 
-// guild-scoped, so a changed command is live at once instead of within the hour
-export const register = async (client) => {
-  if (!config.guildId) {
-    log.warn('no guild id, slash commands not registered');
-    return;
-  }
+// no permissions: the commands read the api and post nothing on their own
+export const installUrl = (applicationId) =>
+  `https://discord.com/oauth2/authorize?client_id=${applicationId}&scope=bot%20applications.commands&permissions=0`;
 
-  const guild = await client.guilds.fetch(config.guildId);
-  await guild.commands.set(definitions);
+// global since 2026-09-22, so any server may add the bot; a changed command
+// takes up to an hour to reach them, where a guild-scoped one was live at once
+export const register = async (client) => {
+  await client.application.commands.set(definitions);
 
   log.info(`slash commands registered: ${definitions.map((one) => `/${one.name}`).join(' ')}`);
+  log.info(`install link: ${installUrl(client.application.id)}`);
 };

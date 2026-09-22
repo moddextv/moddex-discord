@@ -364,3 +364,27 @@ describe('the badge emoji map', () => {
     );
   });
 });
+
+/**
+ * Global since 2026-09-22, so any server may add the bot: a guild-scoped set
+ * only ever existed in the community server. The install link carries no
+ * permission bit, because the commands read the api and post nothing.
+ */
+describe('registration', () => {
+  it('registers the commands on the application, not on one guild', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../src/commands.js', import.meta.url), 'utf8');
+
+    assert.match(source, /client\.application\.commands\.set\(definitions\)/);
+    assert.doesNotMatch(source, /guild\.commands\.set/);
+  });
+
+  it('hands out an install link with no permissions', async () => {
+    const { installUrl } = await import('../src/commands.js');
+
+    assert.equal(
+      installUrl('123'),
+      'https://discord.com/oauth2/authorize?client_id=123&scope=bot%20applications.commands&permissions=0'
+    );
+  });
+});
