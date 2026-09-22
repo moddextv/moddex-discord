@@ -376,7 +376,9 @@ describe('registration', () => {
     const source = readFileSync(new URL('../src/commands.js', import.meta.url), 'utf8');
 
     assert.match(source, /client\.application\.commands\.set\(definitions\)/);
-    assert.doesNotMatch(source, /guild\.commands\.set/);
+    assert.doesNotMatch(source, /guild\.commands\.set\(definitions\)/);
+    // and clears the guild-scoped set from before, or home shows every command twice
+    assert.match(source, /guild\.commands\.set\(\[\]\)/);
   });
 
   it('hands out an install link with no permissions', async () => {

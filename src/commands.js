@@ -1,5 +1,6 @@
 import { estateStats, lookupAccount, lookupChannel, lookupRoles, suggestAccounts } from './api.js';
 import { accountEmbed, channelEmbed, notFoundReply, rolesEmbed, statsEmbed } from './messages.js';
+import { config } from './config.js';
 import { log } from './log.js';
 
 // the api refuses a shorter prefix: it would match too much to rank
@@ -107,6 +108,12 @@ export const installUrl = (applicationId) =>
 // takes up to an hour to reach them, where a guild-scoped one was live at once
 export const register = async (client) => {
   await client.application.commands.set(definitions);
+
+  // the guild-scoped set from before would show every command twice at home
+  if (config.guildId) {
+    const guild = await client.guilds.fetch(config.guildId).catch(() => null);
+    if (guild) await guild.commands.set([]);
+  }
 
   log.info(`slash commands registered: ${definitions.map((one) => `/${one.name}`).join(' ')}`);
   log.info(`install link: ${installUrl(client.application.id)}`);
