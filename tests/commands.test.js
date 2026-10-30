@@ -356,6 +356,10 @@ describe('the badge emoji map', () => {
     );
   });
 
+  it('does not ask for an emoji for a color variant, which no profile row ever carries', () => {
+    assert.deepEqual(unrenderableBadges([{ name: 'donator rose', variantOf: 'donator' }]), []);
+  });
+
   it('can draw the translator, which is what this whole check was written for', () => {
     assert.deepEqual(unrenderableBadges([{ name: 'translator' }]), []);
     assert.match(

@@ -104,7 +104,11 @@ export const BADGE_EMOJI = new Map([
  * itself so a caller can decide how loud to be.
  */
 export const unrenderableBadges = (badges, emoji = BADGE_EMOJI) =>
-  (badges || []).map((badge) => badge.name).filter((name) => !emoji.has(name));
+  (badges || [])
+    // a color variant is worn in chat only and never reaches a profile row
+    .filter((badge) => !badge.variantOf)
+    .map((badge) => badge.name)
+    .filter((name) => !emoji.has(name));
 
 const badgeLine = (account, emoji) => {
   const names = (account.badges || []).map((badge) => badge.name);
